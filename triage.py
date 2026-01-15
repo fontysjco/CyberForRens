@@ -4,15 +4,16 @@ from datetime import datetime
 
 def analyze_target(t):
     """Functie om een specifiek (sub)target te analyseren"""
-    print(f"\n[+] Analyse van Target: {t.hostname if hasattr(t, 'hostname') else 'Onbekend'}")
+    hostname = getattr(t, 'hostname', 'Onbekend')
+    print(f"\n[+] Analyse van Volume/Target: {hostname}")
     print(f"    OS: {t.os}")
 
     # [2] Persistence Check
     print(f"\n    [2] PERSISTENCE CHECK (Autoruns)")
     try:
-        # We proberen de plugin aan te roepen via de plugin manager
-        found = False
+        # Controleer of de plugin geladen is
         if hasattr(t.plugins, 'autoruns'):
+            found = False
             for entry in t.plugins.autoruns.autoruns():
                 path_str = str(entry.path).lower()
                 if "temp" in path_str or path_str.endswith(".bat"):
@@ -20,7 +21,7 @@ def analyze_target(t):
                     found = True
             if not found: print("      Geen verdachte autoruns gevonden.")
         else:
-            print("      [-] Autoruns plugin niet beschikbaar voor dit (sub)target.")
+            print("      [-] Autoruns plugin niet beschikbaar voor dit volume.")
     except Exception as e:
         print(f"      [-] Fout bij autoruns: {e}")
 
@@ -34,7 +35,7 @@ def analyze_target(t):
                     print(f"      - {entry.path}")
                     count += 1
         else:
-            print("      [-] Shimcache plugin niet beschikbaar.")
+            print("      [-] Shimcache plugin niet beschikbaar op dit volume.")
     except Exception as e:
         print(f"      [-] Fout bij shimcache: {e}")
 
@@ -44,24 +45,28 @@ def generate_report(image_path):
     print(f"Bron: {image_path}\n" + "="*30)
     
     try:
-        # We openen het image 'recursief' om alle partities te vinden
+        # Open het hoofd-image
         target = Target.open(image_path)
         
-        # Soms is het hoofd-target leeg, maar zitten de data in 'subtargets' (partities)
-        targets_to_scan = []
-        if target.os: # Als het hoofdtarget een OS heeft
-            targets_to_scan.append(target)
-        
-        # Voeg alle partities toe die een OS lijken te hebben
-        for sub in target.subtargets:
-            if sub.os:
-                targets_to_scan.append(sub)
+        # We maken een lijst van alle targets die we willen scannen
+        to_scan = []
 
-        if not targets_to_scan:
-            print("[-] Geen besturingssysteem gevonden op de schijf/partities.")
+        # 1. Heeft het hoofdtarget zelf een OS?
+        if target.os:
+            to_scan.append(target)
+        
+        # 2. Heeft het subtargets (partities/volumes)?
+        # We gebruiken een veilige check om de 'plugin' error te voorkomen
+        subtargets = getattr(target, 'subtargets', [])
+        for sub in subtargets:
+            if sub.os:
+                to_scan.append(sub)
+
+        if not to_scan:
+            print("[-] Geen partities met een besturingssysteem gevonden.")
             return
 
-        for t in targets_to_scan:
+        for t in to_scan:
             analyze_target(t)
 
         print(f"\n" + "="*30 + "\nEinde Rapport")
