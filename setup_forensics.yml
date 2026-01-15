@@ -1,0 +1,33 @@
+---
+- name: Configure Forensic Triage Node
+  hosts: forensic_servers
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Python3 and Pip
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+
+    - name: Install Dissect toolset via Pip
+      pip:
+        name:
+          - dissect
+          - dissect.target
+          - dissect.evidence
+          - pandas
+        executable: pip3
+
+    - name: Create evidence directory
+      file:
+        path: /home/forensicadmin/evidence
+        state: directory
+        owner: forensicadmin
+        group: forensicadmin
