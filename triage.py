@@ -2,77 +2,56 @@ import sys
 from dissect.target import Target
 from datetime import datetime
 
-def analyze_target(t):
-    """Functie om een specifiek (sub)target te analyseren"""
-    hostname = getattr(t, 'hostname', 'Onbekend')
-    print(f"\n[+] Analyse van Volume/Target: {hostname}")
-    print(f"    OS: {t.os}")
-
-    # [2] Persistence Check
-    print(f"\n    [2] PERSISTENCE CHECK (Autoruns)")
-    try:
-        # Controleer of de plugin geladen is
-        if hasattr(t.plugins, 'autoruns'):
-            found = False
-            for entry in t.plugins.autoruns.autoruns():
-                path_str = str(entry.path).lower()
-                if "temp" in path_str or path_str.endswith(".bat"):
-                    print(f"      [VLAG] Verdacht: {entry.path}")
-                    found = True
-            if not found: print("      Geen verdachte autoruns gevonden.")
-        else:
-            print("      [-] Autoruns plugin niet beschikbaar voor dit volume.")
-    except Exception as e:
-        print(f"      [-] Fout bij autoruns: {e}")
-
-    # [3] Execution History
-    print(f"\n    [3] RECENTE EXECUTIE (Shimcache)")
-    try:
-        if hasattr(t.plugins, 'shimcache'):
-            count = 0
-            for entry in t.plugins.shimcache.shimcache():
-                if count < 5:
-                    print(f"      - {entry.path}")
-                    count += 1
-        else:
-            print("      [-] Shimcache plugin niet beschikbaar op dit volume.")
-    except Exception as e:
-        print(f"      [-] Fout bij shimcache: {e}")
-
 def generate_report(image_path):
     print(f"--- Forensisch Triage Rapport ---")
     print(f"Datum: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Bron: {image_path}\n" + "="*30)
     
     try:
-        # Open het hoofd-image
+        # We openen het image. Dissect vindt meestal zelf de juiste Windows-laag.
         target = Target.open(image_path)
         
-        # We maken een lijst van alle targets die we willen scannen
-        to_scan = []
+        # [1] Systeem Informatie
+        print(f"\n[1] SYSTEEM INFORMATIE")
+        print(f"Hostname:  {getattr(target, 'hostname', 'Onbekend')}")
+        print(f"OS:        {getattr(target, 'os', 'Onbekend')}")
+        print(f"Versie:    {getattr(target, 'version', 'Onbekend')}")
 
-        # 1. Heeft het hoofdtarget zelf een OS?
-        if target.os:
-            to_scan.append(target)
-        
-        # 2. Heeft het subtargets (partities/volumes)?
-        # We gebruiken een veilige check om de 'plugin' error te voorkomen
-        subtargets = getattr(target, 'subtargets', [])
-        for sub in subtargets:
-            if sub.os:
-                to_scan.append(sub)
+        # [2] Persistence Check (Autoruns)
+        print(f"\n[2] PERSISTENCE CHECK (Autoruns)")
+        try:
+            # We gebruiken de meest directe manier om plugins aan te roepen
+            if hasattr(target, 'autoruns'):
+                found = False
+                for entry in target.autoruns():
+                    path_str = str(entry.path).lower()
+                    if "temp" in path_str or path_str.endswith(".bat"):
+                        print(f"  [VLAG] Verdachte autorun: {entry.path}")
+                        found = True
+                if not found: print("  Geen verdachte autoruns gevonden.")
+            else:
+                print("  [-] Autoruns plugin niet geladen voor dit target.")
+        except Exception as e:
+            print(f"  [-] Fout bij uitvoeren autoruns: {e}")
 
-        if not to_scan:
-            print("[-] Geen partities met een besturingssysteem gevonden.")
-            return
-
-        for t in to_scan:
-            analyze_target(t)
+        # [3] Execution History (Shimcache)
+        print(f"\n[3] RECENTE EXECUTIE (Shimcache)")
+        try:
+            if hasattr(target, 'shimcache'):
+                count = 0
+                for entry in target.shimcache():
+                    if count < 10:
+                        print(f"  - {entry.path}")
+                        count += 1
+            else:
+                print("  [-] Shimcache plugin niet geladen.")
+        except Exception as e:
+            print(f"  [-] Fout bij uitvoeren shimcache: {e}")
 
         print(f"\n" + "="*30 + "\nEinde Rapport")
 
     except Exception as e:
-        print(f"[-] Algemene fout bij analyse: {e}")
+        print(f"[-] Algemene fout bij laden van image: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
