@@ -8,7 +8,7 @@ def generate_report(image_path):
     print(f"Bron: {image_path}\n" + "="*30)
     
     try:
-        # We openen het image. Dissect vindt meestal zelf de juiste Windows-laag.
+        # We openen de image. Dissect vindt meestal zelf de juiste Windows-laag.
         target = Target.open(image_path)
         
         # [1] Systeem Informatie
