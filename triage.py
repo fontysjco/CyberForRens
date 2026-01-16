@@ -10,23 +10,12 @@ def run_triage(image_path):
     try:
         target = Target.open(image_path)
 
-        # [1] SYSTEEM & GEBRUIKERS
-        print("\n[1] SYSTEEM & GEBRUIKERS")
+        # [1] SYSTEEM INFORMATIE
+        print("\n[1] SYSTEEM INFORMATIE")
         print(f"Hostname:    {getattr(target, 'hostname', 'Onbekend')}")
         print(f"OS/Versie:   {getattr(target, 'version', 'Onbekend')}")
-        try:
-            # Gebruikers ophalen via de plugin manager (meest robuust)
-            user_list = []
-            if hasattr(target.plugins, 'user'):
-                user_list = [u.name for u in target.plugins.user()]
-            elif hasattr(target, 'user'):
-                user_list = [u.name for u in target.user()]
-            
-            print(f"Gebruikers:  {', '.join(user_list) if user_list else 'Geen gevonden'}")
-        except:
-            print("Gebruikers:  Informatie niet beschikbaar.")
 
-        # [2] RECENT UITGEVOERD (Shimcache - DEZE WERKT!)
+        # [2] RECENTE EXECUTIE (Shimcache - DE BEWIJSLAST)
         print("\n[2] RECENT UITGEVOERD (Shimcache)")
         try:
             count = 0
@@ -35,40 +24,25 @@ def run_triage(image_path):
                     print(f"  - {entry.path}")
                     count += 1
         except:
-            print("  [-] Shimcache niet beschikbaar.")
+            print("  [-] Shimcache data niet beschikbaar.")
 
-        # [3] PERSISTENCE & SERVICES
-        print("\n[3] PERSISTENCE & SERVICES")
-        
-        # Autoruns via de officiële plugin-manager
+        # [3] APPLICATIE METADATA (Amcache - SHA1 Hashes)
+        print("\n[3] APPLICATIE ANALYSE (Amcache)")
         try:
-            print("  > Scannen op Autoruns...")
-            if hasattr(target.plugins, 'autoruns'):
-                count_auto = 0
-                for entry in target.plugins.autoruns():
-                    path = str(entry.path).lower()
-                    if "temp" in path or "appdata" in path:
-                        print(f"    [VLAG] Verdacht: {entry.path}")
-                        count_auto += 1
-                if count_auto == 0: print("    Geen verdachte autoruns gevonden.")
-            else:
-                print("    [-] Autoruns plugin niet geladen in Target.")
+            print("  > Zoeken naar programma-hashes...")
+            count_am = 0
+            # Amcache geeft vaak de SHA1 hash van binaries
+            for entry in target.amcache():
+                if count_am < 10:
+                    # We tonen de naam en de hash (indien aanwezig)
+                    name = getattr(entry, 'name', 'Onbekend')
+                    sha1 = getattr(entry, 'sha1', 'Geen hash')
+                    print(f"  - {name} [SHA1: {sha1}]")
+                    count_am += 1
+            if count_am == 0:
+                print("    Geen Amcache data gevonden.")
         except:
-            print("    [-] Fout tijdens autoruns scan.")
-
-        # Services via de officiële plugin-manager
-        try:
-            print("\n  > Scannen op Geïnstalleerde Services (Top 5)...")
-            if hasattr(target.plugins, 'services'):
-                count_serv = 0
-                for service in target.plugins.services():
-                    if count_serv < 5:
-                        print(f"    - {service.name} ({service.display_name})")
-                        count_serv += 1
-            else:
-                print("    [-] Services plugin niet geladen in Target.")
-        except:
-            print("    [-] Fout tijdens services scan.")
+            print("    [-] Amcache plugin niet beschikbaar op dit systeem.")
 
         print("\n" + "="*40 + "\nEinde Rapport")
 
