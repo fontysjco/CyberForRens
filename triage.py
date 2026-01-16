@@ -6,7 +6,6 @@ from datetime import datetime
 def get_file_hash(target, path):
     """Haalt een SHA1 hash op van een specifiek bestand in het image."""
     try:
-        # Dissect filesystem gebruiken om het bestand te openen
         with target.fs.open(path) as f:
             sha1 = hashlib.sha1()
             while chunk := f.read(8192):
@@ -35,28 +34,31 @@ def run_triage(image_path):
             count = 0
             for entry in target.shimcache():
                 path = str(entry.path)
-                # We zoeken specifiek naar de Tor/VPN/Temp zaken die we eerder zagen
                 if any(x in path.lower() for x in ["tor.exe", "protonvpn", "temp"]):
                     print(f"  [ALARM] Gevonden: {path}")
                     suspicious_files.append(path)
                     count += 1
                 if count >= 10: break
-            if not suspicious_files: print("  Geen direct verdachte paden gevonden in de top-resultaten.")
+            if not suspicious_files: print("  Geen direct verdachte paden gevonden.")
         except:
             print("  [-] Shimcache niet beschikbaar.")
 
-        # [3] VERIFICATIE: TARGETED HASHING
+        # [3] VERIFICATIE: DIGITALE VINGERAFDRUKKEN (SHA1)
         print("\n[3] VERIFICATIE: DIGITALE VINGERAFDRUKKEN (SHA1)")
         if suspicious_files:
-            for path in list(set(suspicious_files)): # Unieke paden
-                # We moeten het Windows-pad omzetten naar een Linux-stijl pad voor Dissect fs
+            for path in list(set(suspicious_files)):
+                # Fix: Bereken de bestandsnaam BUITEN de f-string om backslashes te vermijden
+                filename = path.split('\\')[-1]
+                
+                # Windows pad naar Linux stijl voor Dissect
                 fs_path = path.replace("\\", "/").replace("C:", "")
                 h = get_file_hash(target, fs_path)
+                
                 if h:
-                    print(f"  - BESTAND: {path.split('\\')[-1]}")
+                    print(f"  - BESTAND: {filename}")
                     print(f"    HASH:    {h}")
                 else:
-                    print(f"  - BESTAND: {path.split('\\')[-1]} (Kon hash niet berekenen)")
+                    print(f"  - BESTAND: {filename} (Kon hash niet berekenen)")
         else:
             print("  Geen bestanden gevonden voor verificatie.")
 
