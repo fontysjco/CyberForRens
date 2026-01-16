@@ -34,24 +34,31 @@ def run_triage(image_path):
         except:
             print("  [-] Shimcache niet beschikbaar.")
 
-        # [3] PERSISTENCE (Registry RunKeys - De kern van malware startup)
-        print("\n[3] PERSISTENCE (Registry RunKeys)")
+       # [3] PERSISTENCE (Autoruns & Services)
+        print("\n[3] PERSISTENCE & SERVICES")
+        
+        # Probeer eerst de brede autoruns scan
         try:
-            found = False
-            for entry in target.runkeys():
-                print(f"  - {entry.key}: {entry.value}")
-                found = True
-            if not found: print("  Geen RunKeys gevonden.")
+            print("  > Scannen op Autoruns...")
+            count_auto = 0
+            for entry in target.autoruns():
+                # We filteren op veelvoorkomende malware locaties om ruis te voorkomen
+                path = str(entry.path).lower()
+                if "temp" in path or "appdata" in path:
+                    print(f"    [VLAG] Verdacht pad: {entry.path}")
+                    count_auto += 1
+            if count_auto == 0: print("    Geen verdachte autoruns gevonden.")
         except:
-            print("  [-] RunKeys niet beschikbaar.")
+            print("    [-] Autoruns plugin niet beschikbaar.")
 
-        print("\n" + "="*40 + "\nEinde Rapport")
-
-    except Exception as e:
-        print(f"\n[!] KRITIEKE FOUT: {e}")
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Gebruik: python3 triage.py <pad_naar_image>")
-    else:
-        run_triage(sys.argv[1])
+        # Probeer daarna Services (vaak stabieler in Dissect)
+        try:
+            print("\n  > Scannen op Geïnstalleerde Services (Top 5)...")
+            count_serv = 0
+            for service in target.services():
+                if count_serv < 5:
+                    print(f"    - {service.name} ({service.display_name})")
+                    count_serv += 1
+            if count_serv == 0: print("    Geen services gevonden.")
+        except:
+            print("    [-] Services plugin niet beschikbaar.")
