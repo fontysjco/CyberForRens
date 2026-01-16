@@ -20,43 +20,37 @@ def generate_report(image_path):
         # [2] PERSISTENCE CHECK (Autoruns)
         print(f"\n[2] PERSISTENCE CHECK (Autoruns)")
         try:
-            # Check of de plugin in de plugin manager zit
-            if "autoruns" in target.plugins:
-                found = False
-                # We roepen de plugin direct aan via de manager
-                for entry in target.plugins.autoruns():
-                    path_str = str(entry.path).lower()
-                    # Zoek naar typische malware lokaties/extensies
-                    if "temp" in path_str or "appdata" in path_str or path_str.endswith((".bat", ".ps1", ".vbs")):
-                        print(f"  [VLAG] Verdacht: {entry.path}")
-                        found = True
-                if not found:
-                    print("  Geen direct verdachte autoruns gevonden in de scan.")
-            else:
-                print("  [-] De 'autoruns' plugin kon niet worden geladen voor dit volume.")
-        except Exception as e:
-            print(f"  [-] Fout tijdens autoruns scan: {e}")
+            found = False
+            # We roepen de plugin direct aan via de namespace
+            # Dissect plugins zijn vaak direct beschikbaar onder target.plugins.<naam>
+            for entry in target.plugins.autoruns:
+                path_str = str(entry.path).lower()
+                if "temp" in path_str or "appdata" in path_str or path_str.endswith((".bat", ".ps1")):
+                    print(f"  [VLAG] Verdacht: {entry.path}")
+                    found = True
+            if not found:
+                print("  Geen direct verdachte autoruns gevonden.")
+        except Exception:
+            print("  [-] Autoruns plugin niet beschikbaar of geen data gevonden op dit volume.")
 
         # [3] RECENTE EXECUTIE (Shimcache)
         print(f"\n[3] RECENTE EXECUTIE (Shimcache)")
         try:
-            if "shimcache" in target.plugins:
-                count = 0
-                for entry in target.plugins.shimcache():
-                    if count < 10: # We pakken de 10 meest recente
-                        print(f"  - {entry.path}")
-                        count += 1
-                if count == 0:
-                    print("  Geen shimcache entries gevonden.")
-            else:
-                print("  [-] De 'shimcache' plugin is niet beschikbaar voor dit image.")
-        except Exception as e:
-            print(f"  [-] Fout tijdens shimcache scan: {e}")
+            count = 0
+            # Shimcache is een standaard plugin in de Windows-namespace van Dissect
+            for entry in target.plugins.shimcache:
+                if count < 10:
+                    print(f"  - {entry.path}")
+                    count += 1
+            if count == 0:
+                print("  Geen shimcache entries gevonden.")
+        except Exception:
+            print("  [-] Shimcache plugin niet beschikbaar op dit image.")
 
         print(f"\n" + "="*30 + "\nEinde Rapport")
 
     except Exception as e:
-        print(f"[-] Kritieke fout bij openen image: {e}")
+        print(f"[-] Kritieke fout: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
