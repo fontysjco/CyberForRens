@@ -1,16 +1,13 @@
-# 1. De Azure Provider
 provider "azurerm" {
   features {}
   subscription_id = "80759b0c-6677-461b-babf-76487bdf3ed5"
 }
 
-# 2. De Resource Group (De verzamelmap)
 resource "azurerm_resource_group" "rg" {
   name     = "rg-forensic-triage"
   location = "switzerlandnorth"
 }
 
-# 3. Het Virtuele Netwerk (De 'omheining')
 resource "azurerm_virtual_network" "vnet" {
   name                = "forensic-vnet"
   address_space       = ["10.0.0.0/16"]
@@ -18,7 +15,6 @@ resource "azurerm_virtual_network" "vnet" {
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-# 4. Het Subnet (Een specifiek gedeelte binnen het netwerk)
 resource "azurerm_subnet" "subnet" {
   name                 = "internal-subnet"
   resource_group_name  = azurerm_resource_group.rg.name
@@ -26,7 +22,6 @@ resource "azurerm_subnet" "subnet" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# 5. Network Security Group (De Firewall - CRUCIAAL voor Niveau 1)
 resource "azurerm_network_security_group" "nsg" {
   name                = "forensic-nsg"
   location            = azurerm_resource_group.rg.location
@@ -45,7 +40,6 @@ resource "azurerm_network_security_group" "nsg" {
   }
 }
 
-# 6. De Netwerkkaart voor de VM
 resource "azurerm_network_interface" "nic" {
   name                = "forensic-nic"
   location            = azurerm_resource_group.rg.location
@@ -59,7 +53,6 @@ resource "azurerm_network_interface" "nic" {
   }
 }
 
-# 7. Een Publiek IP (Zodat je erbij kunt vanaf je laptop)
 resource "azurerm_public_ip" "pip" {
   name                = "forensic-ip"
   resource_group_name = azurerm_resource_group.rg.name
@@ -68,7 +61,6 @@ resource "azurerm_public_ip" "pip" {
   sku                 = "Standard"
 }
 
-# 8. De Virtuele Machine (De Runner)
 resource "azurerm_linux_virtual_machine" "vm" {
   name                = "forensic-runner-vm"
   resource_group_name = azurerm_resource_group.rg.name
@@ -95,12 +87,11 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 }
 
-# 9. De koppeling tussen de Netwerkkaart en de NSG
 resource "azurerm_network_interface_security_group_association" "example" {
   network_interface_id      = azurerm_network_interface.nic.id
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
-# 10. Storage Account voor Forensische Images
+
 resource "azurerm_storage_account" "forensic_storage" {
   name                     = "stforensicdata${random_string.suffix.result}" # Naam moet uniek zijn
   resource_group_name      = azurerm_resource_group.rg.name
@@ -109,14 +100,12 @@ resource "azurerm_storage_account" "forensic_storage" {
   account_replication_type = "LRS"
 }
 
-# 11. Container (de map) binnen de Storage Account
 resource "azurerm_storage_container" "images" {
   name                  = "evidence-images"
   storage_account_name  = azurerm_storage_account.forensic_storage.name
   container_access_type = "private" # Veiligheid voorop!
 }
 
-# Hulpstukje voor een unieke naam
 resource "random_string" "suffix" {
   length  = 6
   special = false
